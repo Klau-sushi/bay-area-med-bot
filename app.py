@@ -12,8 +12,25 @@ st.title("🏥 湾区跨境医疗 AI 助手 (三类医院精准版)")
 # 2. 侧边栏设置
 with st.sidebar:
     st.header("🔑 设置")
-    api_key = st.text_input("1. API Key", type="password")
-    endpoint_id = st.text_input("2. Endpoint ID (ep-xxxx)")
+    
+    # === 核心修改逻辑：优先读取云端 Secrets ===
+    
+    # 1. 处理 API Key
+    if "VOLC_API_KEY" in st.secrets:
+        # 如果云端配置了，就直接读取，不显示输入框
+        api_key = st.secrets["VOLC_API_KEY"]
+        st.success("✅ 云端 Key 已自动加载")
+    else:
+        # 如果没配置（比如你在本地跑），就显示输入框
+        api_key = st.text_input("1. API Key", type="password")
+
+    # 2. 处理 Endpoint ID
+    if "VOLC_ENDPOINT_ID" in st.secrets:
+        endpoint_id = st.secrets["VOLC_ENDPOINT_ID"]
+        st.success("✅ 云端 ID 已自动加载")
+    else:
+        endpoint_id = st.text_input("2. Endpoint ID (ep-xxxx)")
+        
     st.markdown("---")
     st.markdown("### 🗺️ 图例说明")
     st.markdown("🔴 **红色**：港澳药械通指定医院")
@@ -135,4 +152,5 @@ with col2:
                 st.session_state.messages.append({"role": "assistant", "content": ai_reply})
 
             except Exception as e:
+
                 st.error(f"AI 出错：{e}")
