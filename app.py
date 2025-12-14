@@ -6,7 +6,7 @@ import folium
 from streamlit_folium import st_folium
 
 # 1. 页面配置
-st.set_page_config(page_title="湾区跨境医疗AI助手", page_icon="🏥", layout="wide", initial_sidebar_state="collapsed"")
+st.set_page_config(page_title="湾区跨境医疗AI助手", page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
 st.title("🏥 湾区跨境医疗AI助手")
 
 # 2. 侧边栏设置
@@ -164,6 +164,7 @@ with col2:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
