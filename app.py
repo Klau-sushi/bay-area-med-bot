@@ -77,7 +77,7 @@ if df is None:
     st.stop()
 
 # 4. 页面布局
-col1, col2 = st.columns([2, 1])
+col_map, col_chat = st.columns([2, 1])
 
 # === 左侧：地图 (三色标记) ===
 with col_map:
@@ -161,6 +161,7 @@ with col_chat:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
