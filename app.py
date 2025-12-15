@@ -54,8 +54,16 @@ def load_data_hybrid():
                 df = df.rename(columns={'地址': 'address'})
 
         # 5. 构建 AI 上下文知识库
-        if 'ai_context' not in df.columns:
-            df['ai_context'] = df.apply(lambda x: f"医院名：{x.get('name')} | 类型：{x.get('类型')} | 地址：{x.get('address', '未知')}", axis=1)
+        # 即使 CSV 里有 ai_context，我们这里重新构建一次以确保信息完整
+        # 并且我们不依赖 CSV 原有的 ai_context，因为它可能缺字段
+        def build_context(x):
+            name = x.get('name', '未知医院')
+            h_type = x.get('类型', '未知类型')
+            address = x.get('address', '未知地址')
+            district = x.get('行政区划', '') # 尝试获取行政区
+            return f"医院名：{name} | 行政区：{district} | 类型：{h_type} | 地址：{address}"
+
+        df['ai_context'] = df.apply(build_context, axis=1)
         
         return df
         
@@ -254,12 +262,16 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     # 构建 Prompt: 明确要求不提及“跳转”
                     messages = [
                         {"role": "system", "content": f"""
-                        你是一个专业的湾区跨境医疗助手。请根据以下[知识库]中的医院数据回答用户问题。
+                        你是一个专业的湾区跨境医疗助手。
                         
-                        [回答要求]：
-                        1. 必须基于知识库回答，不要编造。
-                        2. 直接给出医院名称、地址、类型和相关特色。
-                        3. 严禁提及“点击地图”、“地图高亮”、“跳转链接”等交互操作，因为前端已去除这些功能。
+                        [你的能力]:
+                        1. 你拥有一个具体的[医院知识库]（包含医院名、地址、类型）。
+                        2. 你也拥有强大的通用地理和生活常识（例如：你知道“福田口岸”在哪里，也知道“感冒吃什么”）。
+
+                        [回答原则]:
+                        1. **事实性数据（如地址、三甲资质、药械通资格）**：必须严格查询[知识库]，以知识库为准。
+                        2. **逻辑推理**：请结合[知识库]中的地址信息和你自己的常识进行推理。
+                        3. **禁止占位符**：绝对不要输出“某三甲医院”或“某医院”这种模糊字眼。必须直接输出[知识库]里真实的医院全名。如果知识库里找不到合适的，就诚实地说“知识库里暂时没有”，并给出通用建议。
                         4. 语气亲切、专业。
                         
                         [知识库]:
@@ -283,3 +295,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             
             st.session_state.messages.append({"role": "assistant", "content": response_text})
             st.rerun()
+
