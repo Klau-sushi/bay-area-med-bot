@@ -30,20 +30,9 @@ with st.sidebar:
         st.success("✅ 云端 ID 已自动加载")
     else:
         endpoint_id = st.text_input("2. Endpoint ID (ep-xxxx)")
-st.markdown("---") # 分割线        
-st.markdown("### 🗺️ 图例说明")
+        
+# st.markdown("### 🗺️ 图例说明")
 
-# 使用列 (columns) 将三个说明横向排开，更节省空间也更美观
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("🔴 **红色**：港澳药械通指定医院")
-
-with col2:
-    st.markdown("🔵 **蓝色**：公立三甲医院")
-
-with col3:
-    st.markdown("🟢 **绿色**：非三甲/私立医院")
 
 
 
@@ -96,6 +85,18 @@ col1, col2 = st.columns([3, 2])
 # === 左侧：地图 (三色标记) ===
 with col1:
     st.subheader("📍 医疗资源分布")
+    # 使用列 (columns) 将三个说明横向排开，更节省空间也更美观
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("🔴 **红色**：港澳药械通指定医院")
+    
+    with col2:
+        st.markdown("🔵 **蓝色**：公立三甲医院")
+    
+    with col3:
+        st.markdown("🟢 **绿色**：非三甲/私立医院")
+
 
     m = folium.Map(location=[22.54, 114.05], zoom_start=11)
 
@@ -164,6 +165,7 @@ with col2:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
