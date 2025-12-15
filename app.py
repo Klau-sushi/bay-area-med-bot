@@ -124,22 +124,29 @@ with col_map:
     st_folium(m, height=600, use_container_width=True)
 
 # === 右侧：对话 ===
+# === 右侧：对话 ===
 with col_chat:
     st.subheader("💬 智能客服")
     
-    # 主题切换 (只保留一处定义)
+    # 初始化会话状态
+    if "chat_display" not in st.session_state:
+        st.session_state.chat_display = []
+    
+    # 主题切换 (唯一定义)
     theme = st.radio("🌙 主题", ["默认", "夜间", "护眼"], index=0, key="theme")
-    chat_container = st.container(height=600, border=True, key="chat_area")
+    
+    # 聊天容器 (带唯一ID)
+    chat_container = st.container(height=600, border=True, key="custom_chat")
     with chat_container:
-        # 动态注入主题CSS（仅影响本容器）
+        # 动态注入主题CSS (限定作用域)
         if theme == "夜间":
             st.markdown(f"""
             <style>
-                .chat-area {{
+                #custom_chat .chat-bg {{
                     background: #121212 !important;
                     color: #E0E0E0 !important;
                 }}
-                .message-bubble {{
+                #custom_chat .bubble-frame {{
                     border-left: 4px solid #2196F3 !important;
                 }}
             </style>
@@ -147,11 +154,11 @@ with col_chat:
         elif theme == "护眼":
             st.markdown(f"""
             <style>
-                .chat-area {{
+                #custom_chat .chat-bg {{
                     background: #F1F8E9 !important;
                     color: #2D3436 !important;
                 }}
-                .message-bubble {{
+                #custom_chat .bubble-frame {{
                     border-left: 4px solid #2196F3 !important;
                 }}
             </style>
@@ -159,11 +166,11 @@ with col_chat:
         else:  # 默认主题
             st.markdown(f"""
             <style>
-                .chat-area {{
+                #custom_chat .chat-bg {{
                     background: #F8F9FF !important;
                     color: #2D3436 !important;
                 }}
-                .message-bubble {{
+                #custom_chat .bubble-frame {{
                     border-left: 4px solid #2196F3 !important;
                 }}
             </style>
@@ -173,35 +180,42 @@ with col_chat:
         for message in st.session_state.chat_display:
             role = message["role"]
             content = message["content"]
-    
-
-    
-             # 头像和消息气泡组合
-            avatar = "🧑💻" if role == "user" else "🤖"
-            bubble_class = "message-bubble"
+            
+            # 头像和消息气泡组合 (优化版)
+            avatar = "👩⚕️" if role == "user" else "🤖"  # 医疗专用头像
+            bubble_class = "bubble-frame"
             
             st.markdown(f"""
             <div style="
                 display: flex;
-                gap: 12px;
-                margin: 10px 0;
-                padding: 8px;
+                gap: 14px;
+                margin: 12px 0;
+                align-items: flex-start;
             ">
                 <span style="
-                    font-size: 20px;
-                    vertical-align: middle;
+                    font-size: 22px;
+                    line-height: 1.2;
                 ">{avatar}</span>
                 <div class="{bubble_class}" style="
-                    max-width: 70%;
-                    padding: 12px;
-                    border-radius: 18px;
+                    max-width: 68%;
+                    padding: 14px;
+                    border-radius: 20px;
                     background: {'#ffffff' if role == 'user' else '#F3F4F6'};
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                    border-radius: 22px;
                 ">
-                    {content}
+                    <div style="
+                        word-break: break-word;
+                        max-width: 100%;
+                    ">
+                        {content}
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+            
+
+    
     
     # 输入表单 (简化版，无文件上传)
     with st.form(key="chat_form", clear_on_submit=True):
@@ -244,6 +258,7 @@ with col_chat:
         
         # 刷新页面显示新消息
         st.rerun()
+
 
 
 
