@@ -238,13 +238,18 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         with st.spinner("🤖 AI 正在思考中..."):
             last_msg = st.session_state.messages[-1]["content"]
             
-            # === 安全获取 API Key ===
-            # 优先从 Streamlit Cloud 的 Secrets 获取，其次尝试本地环境变量
-            api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+            # === 安全获取 API Key (适配火山引擎 / DeepSeek) ===
+            # 从 Secrets 或环境变量获取火山引擎的 API Key 和 Endpoint ID
+            volc_api_key = st.secrets.get("VOLC_API_KEY") or os.getenv("VOLC_API_KEY")
+            volc_endpoint_id = st.secrets.get("VOLC_ENDPOINT_ID") or os.getenv("VOLC_ENDPOINT_ID")
             
-            if api_key:
+            if volc_api_key and volc_endpoint_id:
                 try:
-                    client = OpenAI(api_key=api_key)
+                    # 初始化 OpenAI Client，并指向火山引擎的 Base URL
+                    client = OpenAI(
+                        api_key=volc_api_key,
+                        base_url="https://ark.cn-beijing.volces.com/api/v3"
+                    )
                     
                     # 构建 Prompt: 明确要求不提及“跳转”
                     messages = [
@@ -263,8 +268,9 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                         {"role": "user", "content": last_msg}
                     ]
                     
+                    # 使用 Endpoint ID 作为 model 参数
                     completion = client.chat.completions.create(
-                        model="gpt-3.5-turbo", 
+                        model=volc_endpoint_id, 
                         messages=messages,
                         temperature=0.7
                     )
@@ -273,7 +279,7 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 except Exception as e:
                     response_text = f"⚠️ AI 服务暂时不可用 (Error: {str(e)[:50]}...)"
             else:
-                response_text = "⚠️ 系统未配置 API Key。请管理员在 Streamlit 后台配置 Secrets。"
+                response_text = "⚠️ 系统未配置火山引擎 Key。请管理员在 Streamlit 后台 Secrets 配置 VOLC_API_KEY 和 VOLC_ENDPOINT_ID。"
             
             st.session_state.messages.append({"role": "assistant", "content": response_text})
             st.rerun()
