@@ -176,24 +176,26 @@ with col_chat:
     
 
     
-            # 头像独立显示
-            avatar_img = "🤖" if role == "assistant" else "👩⚕️"  # 使用医疗相关符号
-            is_avatar = role == "assistant"  # 仅在AI消息显示头像
+             # 头像和消息气泡组合
+            avatar = "🧑💻" if role == "user" else "🤖"
+            bubble_class = "message-bubble"
             
-            # 消息气泡样式
             st.markdown(f"""
             <div style="
                 display: flex;
-                align-items: flex-start;
+                gap: 12px;
                 margin: 10px 0;
-                gap: 15px;
+                padding: 8px;
             ">
-                {f'<span style="font-size:24px">{avatar_img}</span>' if is_avatar else ''}
-                <div style="
-                    background: {'#F3F4F6' if role == 'assistant' else 'white'};
-                    border-radius: 18px;
-                    padding: 12px 16px;
+                <span style="
+                    font-size: 20px;
+                    vertical-align: middle;
+                ">{avatar}</span>
+                <div class="{bubble_class}" style="
                     max-width: 70%;
+                    padding: 12px;
+                    border-radius: 18px;
+                    background: {'#ffffff' if role == 'user' else '#F3F4F6'};
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 ">
                     {content}
@@ -242,6 +244,7 @@ with col_chat:
         
         # 刷新页面显示新消息
         st.rerun()
+
 
 
 
