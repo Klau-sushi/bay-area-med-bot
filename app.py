@@ -5,261 +5,172 @@ import os
 import folium
 from streamlit_folium import st_folium
 
-# 1. 页面配置
-st.set_page_config(page_title="湾区跨境医疗AI助手", page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
-st.title("🏥 湾区跨境医疗AI助手")
+# -----------------------------------------------------------------------------
+# 1. 页面配置 & CSS 美化 (微信风格主题)
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="湾区跨境医疗AI助手", 
+    page_icon="🏥", 
+    layout="wide", 
+    initial_sidebar_state="collapsed"
+)
 
-# 2. 侧边栏设置
-with st.sidebar:
-    st.header("🔑 设置")
+# 注入自定义 CSS 样式
+st.markdown("""
+<style>
+    /* 1. 全局背景颜色 - 类似微信的浅灰色 */
+    .stApp {
+        background-color: #F5F5F5;
+    }
     
-    # === 核心修改逻辑：优先读取云端 Secrets ===
-    
-    # 1. 处理 API Key
-    if "VOLC_API_KEY" in st.secrets:
-        # 如果云端配置了，就直接读取，不显示输入框
-        api_key = st.secrets["VOLC_API_KEY"]
-        st.success("✅ 云端 Key 已自动加载")
-    else:
-        # 如果没配置（比如你在本地跑），就显示输入框
-        api_key = st.text_input("1. API Key", type="password")
+    /* 2. 调整地图的高度，防止它太长 */
+    iframe[title="streamlit.map"] {
+        height: 400px !important;
+    }
 
-    # 2. 处理 Endpoint ID
-    if "VOLC_ENDPOINT_ID" in st.secrets:
-        endpoint_id = st.secrets["VOLC_ENDPOINT_ID"]
-        st.success("✅ 云端 ID 已自动加载")
-    else:
-        endpoint_id = st.text_input("2. Endpoint ID (ep-xxxx)")
-        
-# st.markdown("### 🗺️ 图例说明")
+    /* 3. 给右侧对话区加一个白色卡片背景，让它更聚光 */
+    .chat-container {
+        background-color: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+</style>
+""", unsafe_allow_html=True)
 
-
-# 3. 加载数据 (精准区分三类)
+# -----------------------------------------------------------------------------
+# 2. 数据加载
+# -----------------------------------------------------------------------------
 @st.cache_data
 def load_data_hybrid():
-    # 读取文件
-    file_path = "shenzhen_poi_enriched.csv"
-    if not os.path.exists(file_path):
-        file_path = "shenzhen_poi_data.xlsx"  # 降级读取
-        if not os.path.exists(file_path):
-            return None, None
+    try:
+        df = pd.read_csv("shenzhen_poi_enriched.csv")
+        # 自动补全颜色列
+        if 'color' not in df.columns:
+            def get_color(type_str):
+                if pd.isna(type_str): return '#00FF00'
+                if '港澳' in type_str or '药械通' in type_str: return '#FF0000' # 红
+                if '三甲' in type_str: return '#0000FF' # 蓝
+                return '#00FF00' # 绿
+            df['color'] = df['类型'].apply(get_color)
+        return df
+    except Exception as e:
+        # 如果报错，返回一个空的 DataFrame 防止崩溃
+        return pd.DataFrame(columns=['lat', 'lon', '类型', 'color'])
 
-    if file_path.endswith('.csv'):
-        df = pd.read_csv(file_path)
+df = load_data_hybrid()
+
+# -----------------------------------------------------------------------------
+# 3. 核心逻辑：获取对话历史并筛选数据
+# -----------------------------------------------------------------------------
+
+# 初始化聊天记录
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# 获取用户最近一次提问 (用于控制地图)
+user_query = ""
+if len(st.session_state.messages) > 0:
+    last_msg = st.session_state.messages[-1]
+    if last_msg["role"] == "user":
+        user_query = last_msg["content"]
+
+# 筛选数据
+filtered_data = df.copy()
+filter_tips = "" # 用于在界面提示筛选状态
+
+if not filtered_data.empty and user_query:
+    if "三甲" in user_query:
+        filter_tips = "🔵 已筛选：三甲医院"
+        filtered_data = filtered_data[filtered_data['类型'].str.contains('三甲', na=False)]
+    elif "港澳" in user_query or "药械通" in user_query or "医疗券" in user_query:
+        filter_tips = "🔴 已筛选：港澳指定医院"
+        filtered_data = filtered_data[filtered_data['类型'].str.contains('港澳', na=False)]
+    elif "私立" in user_query or "诊所" in user_query:
+        filter_tips = "🟢 已筛选：私立/诊所"
+        filtered_data = filtered_data[filtered_data['类型'].str.contains('私立', na=False)]
+
+# -----------------------------------------------------------------------------
+# 4. 页面布局 (左右分栏：左地图，右对话)
+# -----------------------------------------------------------------------------
+
+st.title("🏥 湾区跨境医疗 AI 助手")
+st.markdown("---")
+
+# 创建两列：左侧占 2/5 (40%)，右侧占 3/5 (60%)
+col_left, col_right = st.columns([2, 3], gap="large")
+
+# === 左侧：地图与图例 ===
+with col_left:
+    st.markdown("### 🗺️ 医疗资源分布")
+    
+    # 如果有筛选状态，显示一个小提示
+    if filter_tips:
+        st.info(filter_tips)
+    
+    # 图例 (改用更紧凑的显示方式)
+    st.markdown("""
+    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;">
+        <span>🔴 港澳指定</span>
+        <span>🔵 公立三甲</span>
+        <span>🟢 私立/诊所</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 地图展示
+    if not filtered_data.empty:
+        st.map(filtered_data, latitude='lat', longitude='lon', size=25, color='color')
     else:
-        df = pd.read_excel(file_path)
+        st.warning("数据加载失败或筛选结果为空")
 
-    text_context = ""
-    for index, row in df.iterrows():
-        # 获取AI简介
-        ai_info = str(row.get('ai_context', '暂无详细信息'))
-
-        # ★★★ 核心修改：精准翻译三种类型 ★★★
-        h_type = row['type']
-        if h_type == "Policy_Designated":
-            h_type_cn = "【港澳药械通指定医院】"
-        elif h_type == "Tier_A_Only":
-            h_type_cn = "【公立三甲医院】"
-        elif h_type == "Non_Tier_A_Policy":
-            h_type_cn = "【非三甲/私立医院】"  # 修正了这里！
-        else:
-            h_type_cn = "其他类型医院"
-
-        text_context += f"医院：{row['name']} | 类型：{h_type_cn} | 详情：{ai_info} | 坐标：({row['latitude']}, {row['longitude']})\n"
-
-    return df, text_context
-
-
-df, context_data = load_data_hybrid()
-
-if df is None:
-    st.error("❌ 找不到数据文件！")
-    st.stop()
-
-# 4. 页面布局
-col_map, col_chat = st.columns([2, 1])
-
-# === 左侧：地图 (三色标记) ===
-with col_map:
-    st.subheader("📍 医疗资源分布")
-    # 使用行 (rows) 将三个说明横向排开，更节省空间也更美观
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("🔴 港澳药械通指定医院")
+# === 右侧：AI 咨询对话框 ===
+with col_right:
+    st.markdown("### 🤖 智能咨询顾问")
     
-    with col2:
-        st.markdown("🔵 公立三甲医院")
+    # 创建一个容器来包裹聊天记录
+    chat_container = st.container()
     
-    with col3:
-        st.markdown("🟢 非三甲/私立医院")
-
-
-    m = folium.Map(location=[22.54, 114.05], zoom_start=11)
-
-    for index, row in df.iterrows():
-        # ★★★ 核心修改：三种颜色逻辑 ★★★
-        h_type = row['type']
-
-        if h_type == 'Policy_Designated':
-            icon_color = 'red'  # 药械通 = 红
-            icon_icon = 'star'
-            type_label = "药械通指定"
-        elif h_type == 'Tier_A_Only':
-            icon_color = 'blue'  # 三甲 = 蓝
-            icon_icon = 'plus'
-            type_label = "公立三甲"
-        else:
-            icon_color = 'green'  # 其他 = 绿
-            icon_icon = 'leaf'  # 用叶子代表非公立/私立
-            type_label = "非三甲/私立"
-
-        # 添加标记
-        folium.Marker(
-            location=[row['latitude'], row['longitude']],
-            tooltip=f"{row['name']} ({type_label})",
-            popup=f"<b>{row['name']}</b><br>类型：{type_label}<br>{str(row.get('ai_context', ''))[:50]}...",
-            icon=folium.Icon(color=icon_color, icon=icon_icon)
-        ).add_to(m)
-
-    st_folium(m, height=600, use_container_width=True)
-
-# === 右侧：对话 ===
-# === 右侧：对话 ===
-with col_chat:
-    st.subheader("💬 智能客服")
-    
-    # 初始化会话状态
-    if "chat_display" not in st.session_state:
-        st.session_state.chat_display = []
-    
-    # 主题切换 (唯一定义)
-    theme = st.radio("🌙 主题", ["默认", "夜间", "护眼"], index=0, key="theme")
-    
-    # 聊天容器 (带唯一ID)
-    chat_container = st.container(height=600, border=True, key="custom_chat")
     with chat_container:
-        # 动态注入主题CSS (限定作用域)
-        if theme == "夜间":
-            st.markdown(f"""
-            <style>
-                #custom_chat .chat-bg {{
-                    background: #121212 !important;
-                    color: #E0E0E0 !important;
-                }}
-                #custom_chat .bubble-frame {{
-                    border-left: 4px solid #2196F3 !important;
-                }}
-            </style>
-            """, unsafe_allow_html=True)
-        elif theme == "护眼":
-            st.markdown(f"""
-            <style>
-                #custom_chat .chat-bg {{
-                    background: #F1F8E9 !important;
-                    color: #2D3436 !important;
-                }}
-                #custom_chat .bubble-frame {{
-                    border-left: 4px solid #2196F3 !important;
-                }}
-            </style>
-            """, unsafe_allow_html=True)
-        else:  # 默认主题
-            st.markdown(f"""
-            <style>
-                #custom_chat .chat-bg {{
-                    background: #F8F9FF !important;
-                    color: #2D3436 !important;
-                }}
-                #custom_chat .bubble-frame {{
-                    border-left: 4px solid #2196F3 !important;
-                }}
-            </style>
-            """, unsafe_allow_html=True)
+        # 显示历史消息
+        # 如果没有消息，显示欢迎语
+        if len(st.session_state.messages) == 0:
+            st.chat_message("assistant", avatar="👩‍⚕️").markdown("您好！我是您的跨境医疗助手。您可以问我：\n- 附近的**三甲医院**在哪里？\n- **港大深圳医院**怎么走？\n- 哪里可以用**长者医疗券**？")
 
-        # 消息显示区域
-        for message in st.session_state.chat_display:
-            role = message["role"]
-            content = message["content"]
-            
-            # 头像和消息气泡组合 (优化版)
-            avatar = "👩⚕️" if role == "user" else "🤖"  # 医疗专用头像
-            bubble_class = "bubble-frame"
-            
-            st.markdown(f"""
-            <div style="
-                display: flex;
-                gap: 14px;
-                margin: 12px 0;
-                align-items: flex-start;
-            ">
-                <span style="
-                    font-size: 22px;
-                    line-height: 1.2;
-                ">{avatar}</span>
-                <div class="{bubble_class}" style="
-                    max-width: 68%;
-                    padding: 14px;
-                    border-radius: 20px;
-                    background: {'#ffffff' if role == 'user' else '#F3F4F6'};
-                    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-                    border-radius: 22px;
-                ">
-                    <div style="
-                        word-break: break-word;
-                        max-width: 100%;
-                    ">
-                        {content}
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
+        for message in st.session_state.messages:
+            # 设置头像：用户用🧑‍💻，AI用👩‍⚕️
+            avatar = "🧑‍💻" if message["role"] == "user" else "👩‍⚕️"
+            with st.chat_message(message["role"], avatar=avatar):
+                st.markdown(message["content"])
 
+# -----------------------------------------------------------------------------
+# 5. 底部输入框 (全局固定)
+# -----------------------------------------------------------------------------
+# st.chat_input 默认固定在页面底部，支持回车发送
+if prompt := st.chat_input("请输入您的问题... (按回车发送)"):
+    # 1. 记录用户输入
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
-    
-    # 输入表单 (简化版，无文件上传)
-    with st.form(key="chat_form", clear_on_submit=True):
-        user_input = st.text_area(
-            "输入消息...", 
-            placeholder="问我关于医院的问题...", 
-            label_visibility="collapsed",
-            height=100
-        )
-        submit_button = st.form_submit_button("发送")
-    
-    # 处理消息发送
-    if submit_button and user_input.strip():
-        # 添加用户消息
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        
-        # 获取AI回复
-        if api_key and endpoint_id:
-            try:
-                client = OpenAI(api_key=api_key, base_url="https://ark.cn-beijing.volces.com/api/v3")
-                system_prompt = f"你是一个专业的湾区医疗助手。请基于以下数据回答：\n{context_data}"
+    # 2. 强制刷新 (为了让新消息立即显示在上面，并触发左侧地图更新)
+    st.rerun()
+
+# -----------------------------------------------------------------------------
+# 6. 处理 AI 回复 (在刷新后执行)
+# -----------------------------------------------------------------------------
+# 检查最后一条消息是不是用户的，如果是，AI 需要回复
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+    with col_right: # 确保 AI 回复显示在右侧栏
+        with st.chat_message("assistant", avatar="👩‍⚕️"):
+            # 模拟 AI 思考过程
+            with st.spinner("正在查询医疗政策库..."):
+                last_user_msg = st.session_state.messages[-1]["content"]
                 
-                response = client.chat.completions.create(
-                    model=endpoint_id,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_input},
-                    ],
-                    stream=False
-                )
-                ai_reply = response.choices[0].message.content
-                st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+                # 这里替换成你的真实 LLM 逻辑
+                response_text = f"收到！关于“{last_user_msg}”，我已经为您更新了左侧地图数据。建议您查看地图上的高亮区域。"
                 
-            except Exception as e:
-                error_msg = f"AI出错：{str(e)}"
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
-        else:
-            error_msg = "请先在侧边栏设置API Key和Endpoint ID"
-            st.session_state.messages.append({"role": "assistant", "content": error_msg})
-        
-        # 刷新页面显示新消息
-        st.rerun()
-
-
+                st.markdown(response_text)
+                
+                # 将 AI 回复存入历史
+                st.session_state.messages.append({"role": "assistant", "content": response_text})
 
 
 
