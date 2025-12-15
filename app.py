@@ -34,9 +34,6 @@ with st.sidebar:
 # st.markdown("### 🗺️ 图例说明")
 
 
-
-
-
 # 3. 加载数据 (精准区分三类)
 @st.cache_data
 def load_data_hybrid():
@@ -83,10 +80,10 @@ if df is None:
 col1, col2 = st.columns([2, 1])
 
 # === 左侧：地图 (三色标记) ===
-with col1:
+with col_map:
     st.subheader("📍 医疗资源分布")
     # 使用行 (rows) 将三个说明横向排开，更节省空间也更美观
-    col1, col2, col3 = st.columns(3),
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("🔴 **红色**：港澳药械通指定医院")
     
@@ -127,8 +124,8 @@ with col1:
     st_folium(m, height=600, use_container_width=True)
 
 # === 右侧：对话 (逻辑不变) ===
-with col2:
-    st.subheader("💬 智能咨询")
+with col_chat:
+    st.subheader("💬 智能客服")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -164,6 +161,7 @@ with col2:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
