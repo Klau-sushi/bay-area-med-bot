@@ -128,95 +128,53 @@ with col_chat:
     st.subheader("💬 智能客服")
     
     # 主题切换 (只保留一处定义)
-    theme = st.radio("🌙 选择主题", ["默认", "夜间", "护眼"], index=0, key="theme")
-    
-    # 动态应用主题样式 (添加完整CSS)
-    if theme == "夜间":
-        st.markdown("""
-        <style>
-            :root {
-                --primary-color: #1A237E;
-                --bg-color: #121212;
-                --text-color: #E0E0E0;
-                --human-bg: #2d2d2d;
-                --ai-bg: #1f1f1f;
-            }
-            .chat-container {
-                background: var(--bg-color);
-                color: var(--text-color);
-            }
-            .human {
-                background: var(--human-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-            .ai {
-                background: var(--ai-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    elif theme == "护眼":
-        st.markdown("""
-        <style>
-            :root {
-                --primary-color: #2E7D32;
-                --bg-color: #F1F8E9;
-                --text-color: #2D3436;
-                --human-bg: #ffffff;
-                --ai-bg: #e8f5e9;
-            }
-            .chat-container {
-                background: var(--bg-color);
-                color: var(--text-color);
-            }
-            .human {
-                background: var(--human-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-            .ai {
-                background: var(--ai-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    else:  # 默认主题
-        st.markdown("""
-        <style>
-            :root {
-                --primary-color: #2A5CAA;
-                --bg-color: #F8F9FF;
-                --text-color: #2D3436;
-                --human-bg: #ffffff;
-                --ai-bg: #F3F4F6;
-            }
-            .chat-container {
-                background: var(--bg-color);
-                color: var(--text-color);
-            }
-            .human {
-                background: var(--human-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-            .ai {
-                background: var(--ai-bg);
-                border-left: 4px solid var(--primary-color);
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    
-    # 聊天容器 (消息气泡和头像在这里显示)
-    chat_container = st.container(height=500)
+    theme = st.radio("🌙 主题", ["默认", "夜间", "护眼"], index=0, key="theme")
+    chat_container = st.container(height=600, border=True, key="chat_area")
     with chat_container:
-        # 初始化消息显示区域
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-            # 添加欢迎消息
-            st.session_state.messages.append({"role": "assistant", "content": "您好！我是医疗助手，有什么可以帮您？"})
-        
-        # 显示所有消息 (带头像和气泡样式)
-        for message in st.session_state.messages:
+        # 动态注入主题CSS（仅影响本容器）
+        if theme == "夜间":
+            st.markdown(f"""
+            <style>
+                .chat-area {{
+                    background: #121212 !important;
+                    color: #E0E0E0 !important;
+                }}
+                .message-bubble {{
+                    border-left: 4px solid #2196F3 !important;
+                }}
+            </style>
+            """, unsafe_allow_html=True)
+        elif theme == "护眼":
+            st.markdown(f"""
+            <style>
+                .chat-area {{
+                    background: #F1F8E9 !important;
+                    color: #2D3436 !important;
+                }}
+                .message-bubble {{
+                    border-left: 4px solid #2196F3 !important;
+                }}
+            </style>
+            """, unsafe_allow_html=True)
+        else:  # 默认主题
+            st.markdown(f"""
+            <style>
+                .chat-area {{
+                    background: #F8F9FF !important;
+                    color: #2D3436 !important;
+                }}
+                .message-bubble {{
+                    border-left: 4px solid #2196F3 !important;
+                }}
+            </style>
+            """, unsafe_allow_html=True)
+
+        # 消息显示区域
+        for message in st.session_state.chat_display:
             role = message["role"]
             content = message["content"]
+    
+
     
             # 头像独立显示
             avatar_img = "🤖" if role == "assistant" else "👩⚕️"  # 使用医疗相关符号
@@ -284,6 +242,7 @@ with col_chat:
         
         # 刷新页面显示新消息
         st.rerun()
+
 
 
 
