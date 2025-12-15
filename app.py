@@ -123,44 +123,165 @@ with col_map:
 
     st_folium(m, height=600, use_container_width=True)
 
-# === 右侧：对话 (逻辑不变) ===
+# === 右侧：对话 ===
 with col_chat:
     st.subheader("💬 智能客服")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    chat_container = st.container(height=480)
-    for message in st.session_state.messages:
-        with chat_container.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input("问我关于医院的问题..."):
-        if not api_key or not endpoint_id:
-            st.toast("请先填入 Key 和 ID！", icon="⚠️")
-        else:
-            chat_container.chat_message("user").markdown(prompt)
-            st.session_state.messages.append({"role": "user", "content": prompt})
-
+    
+    # 主题切换 (只保留一处定义)
+    theme = st.radio("🌙 选择主题", ["默认", "夜间", "护眼"], index=0, key="theme")
+    
+    # 动态应用主题样式 (添加完整CSS)
+    if theme == "夜间":
+        st.markdown("""
+        <style>
+            :root {
+                --primary-color: #1A237E;
+                --bg-color: #121212;
+                --text-color: #E0E0E0;
+                --human-bg: #2d2d2d;
+                --ai-bg: #1f1f1f;
+            }
+            .chat-container {
+                background: var(--bg-color);
+                color: var(--text-color);
+            }
+            .human {
+                background: var(--human-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+            .ai {
+                background: var(--ai-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    elif theme == "护眼":
+        st.markdown("""
+        <style>
+            :root {
+                --primary-color: #2E7D32;
+                --bg-color: #F1F8E9;
+                --text-color: #2D3436;
+                --human-bg: #ffffff;
+                --ai-bg: #e8f5e9;
+            }
+            .chat-container {
+                background: var(--bg-color);
+                color: var(--text-color);
+            }
+            .human {
+                background: var(--human-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+            .ai {
+                background: var(--ai-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    else:  # 默认主题
+        st.markdown("""
+        <style>
+            :root {
+                --primary-color: #2A5CAA;
+                --bg-color: #F8F9FF;
+                --text-color: #2D3436;
+                --human-bg: #ffffff;
+                --ai-bg: #F3F4F6;
+            }
+            .chat-container {
+                background: var(--bg-color);
+                color: var(--text-color);
+            }
+            .human {
+                background: var(--human-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+            .ai {
+                background: var(--ai-bg);
+                border-left: 4px solid var(--primary-color);
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    # 聊天容器 (消息气泡和头像在这里显示)
+    chat_container = st.container(height=500)
+    with chat_container:
+        # 初始化消息显示区域
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+            # 添加欢迎消息
+            st.session_state.messages.append({"role": "assistant", "content": "您好！我是医疗助手，有什么可以帮您？"})
+        
+        # 显示所有消息 (带头像和气泡样式)
+        for message in st.session_state.messages:
+            role = message["role"]
+            content = message["content"]
+            
+            # 确定样式和头像
+            if role == "user":
+                css_class = "human"
+                avatar = "🧑💻"  # 用户头像
+            else:
+                css_class = "ai"
+                avatar = "🤖"  # 医疗机器人头像
+            
+            # 显示消息气泡 (关键代码)
+            st.markdown(f"""
+            <div class="{css_class}" style="
+                max-width: 80%;
+                padding: 12px 16px;
+                margin: 8px 0;
+                border-radius: 18px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+                <span style="font-size: 24px; vertical-align: middle;">{avatar}</span>
+                <span style="margin-left: 8px; vertical-align: middle;">{content}</span>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # 输入表单 (简化版，无文件上传)
+    with st.form(key="chat_form", clear_on_submit=True):
+        user_input = st.text_area(
+            "输入消息...", 
+            placeholder="问我关于医院的问题...", 
+            label_visibility="collapsed",
+            height=100
+        )
+        submit_button = st.form_submit_button("发送")
+    
+    # 处理消息发送
+    if submit_button and user_input.strip():
+        # 添加用户消息
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        # 获取AI回复
+        if api_key and endpoint_id:
             try:
                 client = OpenAI(api_key=api_key, base_url="https://ark.cn-beijing.volces.com/api/v3")
                 system_prompt = f"你是一个专业的湾区医疗助手。请基于以下数据回答：\n{context_data}"
-
+                
                 response = client.chat.completions.create(
                     model=endpoint_id,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt},
+                        {"role": "user", "content": user_input},
                     ],
                     stream=False
                 )
                 ai_reply = response.choices[0].message.content
-                chat_container.chat_message("assistant").markdown(ai_reply)
                 st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-
+                
             except Exception as e:
+                error_msg = f"AI出错：{str(e)}"
+                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+        else:
+            error_msg = "请先在侧边栏设置API Key和Endpoint ID"
+            st.session_state.messages.append({"role": "assistant", "content": error_msg})
+        
+        # 刷新页面显示新消息
+        st.rerun()
 
-                st.error(f"AI 出错：{e}")
 
 
 
