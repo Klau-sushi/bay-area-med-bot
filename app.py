@@ -217,26 +217,29 @@ with col_chat:
         for message in st.session_state.messages:
             role = message["role"]
             content = message["content"]
+    
+            # 头像独立显示
+            avatar_img = "🤖" if role == "assistant" else "👩⚕️"  # 使用医疗相关符号
+            is_avatar = role == "assistant"  # 仅在AI消息显示头像
             
-            # 确定样式和头像
-            if role == "user":
-                css_class = "human"
-                avatar = "🧑💻"  # 用户头像
-            else:
-                css_class = "ai"
-                avatar = "🤖"  # 医疗机器人头像
-            
-            # 显示消息气泡 (关键代码)
+            # 消息气泡样式
             st.markdown(f"""
-            <div class="{css_class}" style="
-                max-width: 80%;
-                padding: 12px 16px;
-                margin: 8px 0;
-                border-radius: 18px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            <div style="
+                display: flex;
+                align-items: flex-start;
+                margin: 10px 0;
+                gap: 15px;
             ">
-                <span style="font-size: 24px; vertical-align: middle;">{avatar}</span>
-                <span style="margin-left: 8px; vertical-align: middle;">{content}</span>
+                {f'<span style="font-size:24px">{avatar_img}</span>' if is_avatar else ''}
+                <div style="
+                    background: {'#F3F4F6' if role == 'assistant' else 'white'};
+                    border-radius: 18px;
+                    padding: 12px 16px;
+                    max-width: 70%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">
+                    {content}
+                </div>
             </div>
             """, unsafe_allow_html=True)
     
@@ -281,6 +284,7 @@ with col_chat:
         
         # 刷新页面显示新消息
         st.rerun()
+
 
 
 
