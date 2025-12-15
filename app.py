@@ -30,7 +30,7 @@ with st.sidebar:
         st.success("✅ 云端 ID 已自动加载")
     else:
         endpoint_id = st.text_input("2. Endpoint ID (ep-xxxx)")
-        
+st.markdown("---") # 分割线        
 st.markdown("### 🗺️ 图例说明")
 
 # 使用列 (columns) 将三个说明横向排开，更节省空间也更美观
@@ -45,7 +45,7 @@ with col2:
 with col3:
     st.markdown("🟢 **绿色**：非三甲/私立医院")
 
-st.markdown("---") # 分割线
+
 
 
 # 3. 加载数据 (精准区分三类)
@@ -164,6 +164,7 @@ with col2:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
