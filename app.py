@@ -86,15 +86,14 @@ col1, col2 = st.columns([3, 2])
 with col1:
     st.subheader("📍 医疗资源分布")
     # 使用行 (rows) 将三个说明横向排开，更节省空间也更美观
-    row1, row2, row3 = st.rows(3)
-    
-    with row1:
+    col1, col2, col3 = st.columns(1),
+    with col1:
         st.markdown("🔴 **红色**：港澳药械通指定医院")
     
-    with row2:
+    with col2:
         st.markdown("🔵 **蓝色**：公立三甲医院")
     
-    with row3:
+    with col3:
         st.markdown("🟢 **绿色**：非三甲/私立医院")
 
 
@@ -165,6 +164,7 @@ with col2:
             except Exception as e:
 
                 st.error(f"AI 出错：{e}")
+
 
 
 
